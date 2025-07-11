@@ -6,6 +6,8 @@
 #include "llvm/Transforms/Obfuscation/ObfuscationOptions.h"
 #include "llvm/IR/Module.h"
 
+#include <llvm/Transforms/Obfuscation/MicrosoftRTTIEraser.h>
+
 
 #define DEBUG_TYPE "ir-obfuscation"
 
@@ -15,17 +17,16 @@ static cl::opt<bool>
 EnableIRObfuscation("irobf", cl::init(false), cl::NotHidden,
                     cl::desc("Enable IR Code Obfuscation."),
                     cl::ZeroOrMore);
+
+
 static cl::opt<bool>
-
-
-
 EnableIndirectBr("irobf-indbr", cl::init(false), cl::NotHidden,
                  cl::desc("Enable IR Indirect Branch Obfuscation."),
                  cl::ZeroOrMore);
 static cl::opt<uint32_t>
 LevelIndirectBr("level-indbr", cl::init(0), cl::NotHidden,
-  cl::desc("Set IR Indirect Branch Obfuscation Level."),
-  cl::ZeroOrMore);
+                cl::desc("Set IR Indirect Branch Obfuscation Level."),
+                cl::ZeroOrMore);
 
 
 static cl::opt<bool>
@@ -34,8 +35,8 @@ EnableIndirectCall("irobf-icall", cl::init(false), cl::NotHidden,
                    cl::ZeroOrMore);
 static cl::opt<uint32_t>
 LevelIndirectCall("level-icall", cl::init(0), cl::NotHidden,
-  cl::desc("Set IR Indirect Call Obfuscation Level."),
-  cl::ZeroOrMore);
+                  cl::desc("Set IR Indirect Call Obfuscation Level."),
+                  cl::ZeroOrMore);
 
 
 static cl::opt<bool> EnableIndirectGV(
@@ -43,9 +44,9 @@ static cl::opt<bool> EnableIndirectGV(
     cl::desc("Enable IR Indirect Global Variable Obfuscation."),
     cl::ZeroOrMore);
 static cl::opt<uint32_t> LevelIndirectGV(
-  "level-indgv", cl::init(0), cl::NotHidden,
-  cl::desc("Set IR Indirect Global Variable Obfuscation Level."),
-  cl::ZeroOrMore);
+    "level-indgv", cl::init(0), cl::NotHidden,
+    cl::desc("Set IR Indirect Global Variable Obfuscation Level."),
+    cl::ZeroOrMore);
 
 
 static cl::opt<bool> EnableIRFlattening(
@@ -61,23 +62,36 @@ EnableIRStringEncryption("irobf-cse", cl::init(false), cl::NotHidden,
 
 static cl::opt<bool>
 EnableIRConstantIntEncryption("irobf-cie", cl::init(false), cl::NotHidden,
-  cl::desc("Enable IR Constant Integer Encryption."),
-  cl::ZeroOrMore);
+                              cl::desc(
+                                  "Enable IR Constant Integer Encryption."),
+                              cl::ZeroOrMore);
 static cl::opt<uint32_t> LevelIRConstantIntEncryption(
-  "level-cie", cl::init(0), cl::NotHidden,
-  cl::desc("Set IR Constant Integer Encryption Level."),
-  cl::ZeroOrMore);
+    "level-cie", cl::init(0), cl::NotHidden,
+    cl::desc("Set IR Constant Integer Encryption Level."),
+    cl::ZeroOrMore);
 
 
 static cl::opt<bool>
 EnableIRConstantFPEncryption("irobf-cfe", cl::init(false), cl::NotHidden,
-  cl::desc("Enable IR Constant FP Encryption."),
-  cl::ZeroOrMore);
+                             cl::desc("Enable IR Constant FP Encryption."),
+                             cl::ZeroOrMore);
 
 static cl::opt<uint32_t> LevelIRConstantFPEncryption(
-  "level-cfe", cl::init(0), cl::NotHidden,
-  cl::desc("Set IR Constant FP Encryption Level."),
+    "level-cfe", cl::init(0), cl::NotHidden,
+    cl::desc("Set IR Constant FP Encryption Level."),
+    cl::ZeroOrMore);
+
+
+static cl::opt<bool>
+EnableRttiEraser("irobf-rtti", cl::init(false), cl::NotHidden,
+  cl::desc("Enable RTTI Eraser."),
   cl::ZeroOrMore);
+
+
+static cl::opt<std::string>
+ArkariConfigPath("arkari-cfg", cl::init(std::string{}), cl::NotHidden,
+                 cl::desc("Arkari config path."),
+                 cl::ZeroOrMore);
 
 namespace llvm {
 
@@ -135,23 +149,28 @@ struct ObfuscationPassManager : public ModulePass {
     return P->runOnModule(M);
   }
 
-  static ObfuscationOptions *getOptions() {
-    ObfuscationOptions *Options = new ObfuscationOptions{
-        new ObfOpt{EnableIndirectBr, LevelIndirectBr, "indbr"},
-        new ObfOpt{EnableIndirectCall, LevelIndirectCall, "icall"},
-        new ObfOpt{EnableIndirectGV, LevelIndirectGV, "indgv"},
-        new ObfOpt{EnableIRFlattening, 0, "fla"},
-        new ObfOpt{EnableIRStringEncryption, 0, "cse"},
-        new ObfOpt{EnableIRConstantIntEncryption, LevelIRConstantIntEncryption, "cie"},
-        new ObfOpt{EnableIRConstantFPEncryption, LevelIRConstantFPEncryption, "cfe"}};
-    return Options;
+  static std::shared_ptr<ObfuscationOptions> getOptions() {
+    auto Opt = ObfuscationOptions::readConfigFile(ArkariConfigPath);
+
+    Opt->indBrOpt()->readOpt(EnableIndirectBr, LevelIndirectBr);
+    Opt->iCallOpt()->readOpt(EnableIndirectCall, LevelIndirectCall);
+    Opt->indGvOpt()->readOpt(EnableIndirectGV, LevelIndirectGV);
+    Opt->flaOpt()->readOpt(EnableIRFlattening);
+    Opt->cseOpt()->readOpt(EnableIRStringEncryption);
+    Opt->cieOpt()->readOpt(EnableIRConstantIntEncryption,
+                           LevelIRConstantIntEncryption);
+    Opt->cfeOpt()->readOpt(EnableIRConstantFPEncryption,
+                           LevelIRConstantFPEncryption);
+    Opt->rttiOpt()->readOpt(EnableRttiEraser);
+    return Opt;
   }
 
   bool runOnModule(Module &M) override {
 
     if (EnableIndirectBr || EnableIndirectCall || EnableIndirectGV ||
         EnableIRFlattening || EnableIRStringEncryption ||
-      EnableIRConstantIntEncryption || EnableIRConstantFPEncryption) {
+        EnableIRConstantIntEncryption || EnableIRConstantFPEncryption ||
+        EnableRttiEraser || !ArkariConfigPath.empty()) {
       EnableIRObfuscation = true;
     }
 
@@ -159,8 +178,8 @@ struct ObfuscationPassManager : public ModulePass {
       return false;
     }
 
-    std::unique_ptr<ObfuscationOptions> Options(getOptions());
-    unsigned pointerSize = M.getDataLayout().getTypeAllocSize(
+    const auto Options(getOptions());
+    unsigned   pointerSize = M.getDataLayout().getTypeAllocSize(
         PointerType::getUnqual(M.getContext()));
 
     add(llvm::createConstantIntEncryptionPass(Options.get()));
@@ -168,6 +187,10 @@ struct ObfuscationPassManager : public ModulePass {
 
     if (EnableIRStringEncryption || Options->cseOpt()->isEnabled()) {
       add(llvm::createStringEncryptionPass(Options.get()));
+    }
+
+    if (EnableRttiEraser || Options->rttiOpt()->isEnabled()) {
+      add(llvm::createMsRttiEraserPass(Options.get()));
     }
 
     add(llvm::createFlatteningPass(pointerSize, Options.get()));
