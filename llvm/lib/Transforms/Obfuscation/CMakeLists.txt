@@ -12,14 +12,17 @@ add_llvm_component_library(LLVMObfuscation
   ConstantIntEncryption.cpp
   ConstantFPEncryption.cpp
   MicrosoftRTTIEraser.cpp
-
+  
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Obfuscation
-
-  LINK_COMPONENTS
-  Core
-  Support
-  TransformUtils
+  
+  DEPENDS
+  LLVMLinker
+  
+  //LINK_COMPONENTS
+  //Core
+  //Support
+  //TransformUtils
   )
 
 add_dependencies(LLVMObfuscation intrinsics_gen LLVMLinker)

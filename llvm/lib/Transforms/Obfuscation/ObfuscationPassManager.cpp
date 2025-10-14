@@ -6,8 +6,6 @@
 #include "llvm/Transforms/Obfuscation/ObfuscationOptions.h"
 #include "llvm/IR/Module.h"
 
-#include <llvm/Transforms/Obfuscation/MicrosoftRTTIEraser.h>
-
 
 #define DEBUG_TYPE "ir-obfuscation"
 
@@ -139,6 +137,7 @@ struct ObfuscationPassManager : public ModulePass {
 
   bool runFunctionPass(Module &M, FunctionPass *P) {
     bool Changed = false;
+    Changed |= P->doInitialization(M);
     for (Function &F : M) {
       Changed |= P->runOnFunction(F);
     }
@@ -146,7 +145,7 @@ struct ObfuscationPassManager : public ModulePass {
   }
 
   bool runModulePass(Module &M, ModulePass *P) {
-    return P->runOnModule(M);
+    return P->doInitialization(M) || P->runOnModule(M);
   }
 
   static std::shared_ptr<ObfuscationOptions> getOptions() {
@@ -183,21 +182,22 @@ struct ObfuscationPassManager : public ModulePass {
         PointerType::getUnqual(M.getContext()));
 
     add(llvm::createConstantIntEncryptionPass(Options.get()));
+
+    add(llvm::createIndirectGlobalVariablePass(pointerSize, Options.get()));
+
     add(llvm::createConstantFPEncryptionPass(Options.get()));
 
     if (EnableIRStringEncryption || Options->cseOpt()->isEnabled()) {
       add(llvm::createStringEncryptionPass(Options.get()));
     }
 
+    add(llvm::createIndirectCallPass(pointerSize, Options.get()));
+    add(llvm::createFlatteningPass(pointerSize, Options.get()));
+    add(llvm::createIndirectBranchPass(pointerSize, Options.get()));
+
     if (EnableRttiEraser || Options->rttiOpt()->isEnabled()) {
       add(llvm::createMsRttiEraserPass(Options.get()));
     }
-
-    add(llvm::createFlatteningPass(pointerSize, Options.get()));
-    add(llvm::createIndirectBranchPass(pointerSize, Options.get()));
-    add(llvm::createIndirectCallPass(pointerSize, Options.get()));
-    add(llvm::createIndirectGlobalVariablePass(pointerSize, Options.get()));
-
     bool Changed = run(M);
 
     return Changed;
