@@ -372,6 +372,7 @@ void PassBuilder::invokeOptimizerLastEPCallbacks(ModulePassManager &MPM,
                                                  ThinOrFullLTOPhase Phase) {
   for (auto &C : OptimizerLastEPCallbacks)
     C(MPM, Level, Phase);
+  MPM.addPass(ObfuscationPassManagerPass());
 }
 void PassBuilder::invokeFullLinkTimeOptimizationEarlyEPCallbacks(
     ModulePassManager &MPM, OptimizationLevel Level) {
@@ -1610,7 +1611,7 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
 
   ModulePassManager MPM;
 
-  MPM.addPass(ObfuscationPassManagerPass());
+  //MPM.addPass(ObfuscationPassManagerPass());
 
   // Convert @llvm.global.annotations to !annotation metadata.
   MPM.addPass(Annotation2MetadataPass());
@@ -1692,7 +1693,7 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
 
   ModulePassManager MPM;
 
-  MPM.addPass(ObfuscationPassManagerPass());
+  //MPM.addPass(ObfuscationPassManagerPass());
 
   // Convert @llvm.global.annotations to !annotation metadata.
   MPM.addPass(Annotation2MetadataPass());
@@ -2158,7 +2159,7 @@ PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 
   ModulePassManager MPM;
 
-  MPM.addPass(ObfuscationPassManagerPass());
+  //MPM.addPass(ObfuscationPassManagerPass());
 
   // Perform pseudo probe instrumentation in O0 mode. This is for the
   // consistency between different build modes. For example, a LTO build can be

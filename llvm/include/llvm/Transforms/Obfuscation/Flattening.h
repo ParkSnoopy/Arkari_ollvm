@@ -21,3 +21,4 @@ FunctionPass *createFlatteningPass(unsigned pointerSize, ObfuscationOptions *arg
 }
 
 #endif
+
