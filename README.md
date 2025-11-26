@@ -1,3 +1,7 @@
+# Original repo is gone, archiving this repo. 
+LLVM version update will be on [ParkSnoopy/Arkari](https://github.com/ParkSnoopy/Arkari) (obfuscation module will not be updated myself)
+
+--- 
 <h1 align="center">KomiMoe/Hikari</h1>
 <h2 align="center">曾用名: Arkari (请给我点小星星和打钱) </h2>
 
